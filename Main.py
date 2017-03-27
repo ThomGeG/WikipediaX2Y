@@ -2,6 +2,8 @@ from queue import Queue
 from urllib.request import urlopen
 from html.parser import HTMLParser
 
+BANNED_THINGS = ("Book", "Template_talk", "Wikipedia", "Template", "Special", "File", "Talk", "Portal", "Help", "Category")
+
 class Path():
 
     def __init__(self, root_link):
@@ -31,8 +33,11 @@ class LinkParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag == "a":
             for key, value in attrs:
-                if key == "href" and value.startswith("/wiki/"):
-                    self.links.append(value[6:])
+                if (key == "href" and
+                    value.startswith("/wiki/") and #We're dealing with a link to something article-like
+                    (value[6:].split(":")[0] not in BANNED_THINGS if (":" in value) else True)):
+
+                    self.links.append(value[6:].split("#")[0])
 
     def get_links(self, link):
         self.links = []
@@ -41,8 +46,10 @@ class LinkParser(HTMLParser):
 
 if __name__ == "__main__":
 
-    source_page      = "Hearthstone_(video_game)"
-    destination_page = "Autism"
+    source_page      = input("Source wiki: ")
+    destination_page = input("Destination wiki: ")
+
+    pages_visited = []
 
     parser = LinkParser()
 
@@ -51,7 +58,7 @@ if __name__ == "__main__":
 
     while not queue.empty():
         cur_path = queue.get()
-        print("Processing: " + cur_path.get_current_page())
+        print("Visiting: " + cur_path.get_current_page())
 
         for next_page in parser.get_links(cur_path.get_current_page()):
 
@@ -60,5 +67,7 @@ if __name__ == "__main__":
                 print("Found it after: " + complete_path.get_size() + " links.\n\t" + complete_path.to_string)
                 break
 
-            if not cur_path.has_visited(next_page):
+            if next_page not in pages_visited:
+                print("Queueing: " + next_page)
+                pages_visited.append(next_page)
                 queue.put(cur_path.spawn_child(next_page))
